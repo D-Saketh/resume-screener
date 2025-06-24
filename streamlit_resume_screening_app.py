@@ -4,23 +4,18 @@ import os
 import pandas as pd
 import spacy
 import re
-import subprocess
-import importlib.util
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 st.set_page_config(page_title="AI Resume Screener", layout="wide")
 st.title("📄 AI-Powered Resume Screening Tool")
 
-# 🧠 Load spaCy model with fallback
+# ✅ Load lightweight spaCy model — works on Streamlit Cloud
 @st.cache_resource
-def load_spacy_model():
-    model_name = "en_core_web_sm"
-    if importlib.util.find_spec(model_name) is None:
-        subprocess.run(["python", "-m", "spacy", "download", model_name])
-    return spacy.load(model_name)
+def load_blank_spacy():
+    return spacy.blank("en")  # No download needed
 
-nlp = load_spacy_model()
+nlp = load_blank_spacy()
 
 # 📁 Upload section
 uploaded_job = st.file_uploader("Upload Job Description (PDF)", type="pdf", key="job")
@@ -41,7 +36,7 @@ if uploaded_job and uploaded_resumes:
                 f.write(uploaded.read())
             resume_paths.append(path)
 
-        # 📄 Extract text from PDF
+        # 📄 Extract text from PDFs
         def extract_text_from_pdf(file_path):
             doc = fitz.open(file_path)
             return " ".join([page.get_text() for page in doc])
@@ -49,7 +44,7 @@ if uploaded_job and uploaded_resumes:
         job_text = extract_text_from_pdf(job_path)
         resumes_text = {os.path.basename(path): extract_text_from_pdf(path) for path in resume_paths}
 
-        # 🧹 Text cleaning
+        # 🧹 Clean text
         def clean_text(text):
             text = re.sub(r'[^a-zA-Z ]', ' ', text)
             text = re.sub(r'\s+', ' ', text)
@@ -58,7 +53,7 @@ if uploaded_job and uploaded_resumes:
         job_text_clean = clean_text(job_text)
         resumes_text_clean = {name: clean_text(text) for name, text in resumes_text.items()}
 
-        # 📊 TF-IDF + cosine similarity
+        # 📊 TF-IDF + Cosine Similarity
         documents = [job_text_clean] + list(resumes_text_clean.values())
         vectorizer = TfidfVectorizer()
         tfidf_matrix = vectorizer.fit_transform(documents)
